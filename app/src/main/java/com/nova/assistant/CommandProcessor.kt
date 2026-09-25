@@ -38,9 +38,12 @@ class CommandProcessor(
         val pm = context.packageManager
         val installedApps = pm.getInstalledApplications(0)
 
+        val cleanSpoken = spokenName.replace(" ", "")
         val match = installedApps.firstOrNull { app: ApplicationInfo ->
             val label = pm.getApplicationLabel(app).toString().lowercase(Locale.getDefault())
-            label == spokenName || label.contains(spokenName) || spokenName.contains(label)
+            val cleanLabel = label.replace(" ", "")
+            label == spokenName || label.contains(spokenName) || spokenName.contains(label) ||
+                cleanLabel == cleanSpoken || cleanLabel.contains(cleanSpoken) || cleanSpoken.contains(cleanLabel)
         } ?: return false
 
         val launchIntent = pm.getLaunchIntentForPackage(match.packageName) ?: return false
