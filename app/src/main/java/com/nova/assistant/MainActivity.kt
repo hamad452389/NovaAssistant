@@ -4,14 +4,15 @@ import android.Manifest
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
@@ -30,10 +31,16 @@ class MainActivity : AppCompatActivity() {
         androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (results.values.all { it }) {
-            startNovaService()
+            checkOverlayThenStart()
         } else {
             Toast.makeText(this, "Nova ko chalane ke liye mic permission zaroori hai", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private val overlayLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) {
+        startNovaService()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,7 +58,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         findViewById<Button>(R.id.startButton).setOnClickListener {
-            if (hasAllPermissions()) startNovaService() else permissionLauncher.launch(permissionsNeeded)
+            if (hasAllPermissions()) checkOverlayThenStart() else permissionLauncher.launch(permissionsNeeded)
         }
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
@@ -64,10 +71,23 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun checkOverlayThenStart() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Agla screen par 'Allow' karein taake Nova doosri apps ke upar bhi kaam kar sake", Toast.LENGTH_LONG).show()
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            overlayLauncher.launch(intent)
+        } else {
+            startNovaService()
+        }
+    }
+
     private fun startNovaService() {
         val apiKey = prefs.getString("api_key", "") ?: ""
         if (apiKey.isBlank()) {
-            Toast.makeText(this, "Pehle apna Claude API key save karein", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Pehle apna API key save karein", Toast.LENGTH_LONG).show()
             return
         }
         val intent = Intent(this, NovaVoiceService::class.java)
